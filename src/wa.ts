@@ -12,11 +12,13 @@ import config from "../config";
 import fs from "node:fs/promises";
 import { existsSync } from "fs";
 import path from "path";
+import GPT from "./gpt";
 
 const sessionName = config.sessionName || "my-session";
 
 export let sock: WASocket;
 export let status: string = "connecting";
+const g = new GPT()
 
 // WhatsApp
 export async function connectToWhatsApp(isReconnecting?: boolean) {
@@ -102,12 +104,17 @@ async function handleMessages(
 
 // Handle pesan yang berupa command
 async function handleCommand(sock: WASocket, message: WAMessage) {
-  const { isCommand, command, fromMe, jid } = getMessage(message);
-  if (fromMe || !isCommand) return false;
+  const { isCommand, command, fromMe, jid, args, participant} = getMessage(message);
+  if (!isCommand) return false;
 
   switch (command) {
     case "ping":
       await sock.sendMessage(jid, { text: "Pong!" });
+      break;
+
+    case "p":
+      const resp = await g.question(jid, args)
+      await sock.sendMessage(resp.jid, {text: resp.resp})
       break;
 
     default:
@@ -124,15 +131,11 @@ async function handleCommand(sock: WASocket, message: WAMessage) {
 async function handleMessage(sock: WASocket, message: WAMessage) {
   const { text, fromMe, jid } = getMessage(message);
   if (fromMe) return;
-
-  await sock.sendMessage(jid, {
-    text: "Hello",
-  });
 }
 
 // Mendapatkan property yang sering digunakan
 function getMessage(m: WAMessage) {
-  console.log(JSON.stringify(m, null, 2));
+  console.log(m);
   const text = (
     m.message?.conversation ||
     m.message?.extendedTextMessage?.text ||
@@ -145,5 +148,6 @@ function getMessage(m: WAMessage) {
     jid: m.key.remoteJid!,
     command: text.split(" ").at(0)?.slice(1).trim(),
     args: text.split(" ").slice(1).join(" "),
+    participant: m.key.participant
   };
 }

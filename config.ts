@@ -1,3 +1,3 @@
 export default {
-  sessionName: "my-session",
+  sessionName: "MedicineBot",
 };
